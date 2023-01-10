@@ -42,7 +42,7 @@ logger.addHandler(handler)
 
 
 def check_tokens():
-    """Проверка доступности переменных окружения"""
+    """Проверка доступности переменных окружения."""
     if PRACTICUM_TOKEN is None:
         logger.critical("Ошибка импорта Practicum token")
         return False
@@ -54,7 +54,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Функция отправки сообщения пользователю"""
+    """Функция отправки сообщения пользователю."""
     try:
         bot.send_message(str(TELEGRAM_CHAT_ID), message)
         logger.debug(f"Успешная отправка сообщения ({message})")
@@ -63,7 +63,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получение ответа от запрашиваемого API"""
+    """Получение ответа от запрашиваемого API."""
     params = {"from_date": timestamp}
 
     try:
@@ -86,7 +86,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверка ответа API на соответсвие документации"""
+    """Проверка ответа API на соответсвие документации."""
     if type(response) is dict:
         if "homeworks" in response:
             homeworks = response["homeworks"]
@@ -101,7 +101,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Вердикт изменения статуса домашней работы"""
+    """Вердикт изменения статуса домашней работы."""
     homework_name = homework.get("homework_name")
     homework_status = homework.get("status")
 
