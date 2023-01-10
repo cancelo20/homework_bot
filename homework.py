@@ -1,5 +1,6 @@
 import logging
 import time
+import sys
 import os
 
 import requests
@@ -43,12 +44,9 @@ logger.addHandler(handler)
 
 def check_tokens():
     """Проверка доступности переменных окружения."""
-    if PRACTICUM_TOKEN is None:
-        logger.critical("Ошибка импорта Practicum token")
-        return False
-    elif TELEGRAM_TOKEN is None or TELEGRAM_CHAT_ID is None:
-        logger.critical("Ошибка импорта TG token или chat id")
-        return False
+    if not all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
+        logger.critical('проверьте токены на корректность')
+        sys.exit()
     else:
         return True
 
@@ -69,7 +67,7 @@ def get_api_answer(timestamp):
     try:
         homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=params)
-    except Exception as error:
+    except requests.RequestException as error:
         raise SystemError(f"Ошибка получения запроса: {error}")
     else:
         status_code = homework_statuses.status_code
@@ -87,17 +85,14 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверка ответа API на соответсвие документации."""
-    if type(response) is dict:
-        if "homeworks" in response:
-            homeworks = response["homeworks"]
-            if type(homeworks) == list:
-                return homeworks
-            else:
-                raise TypeError("Значение ключа homeworks не словарь")
-        else:
-            raise KeyError("Отсутсвует ключ homeworks в ответе API")
-    else:
+    if type(response) is not dict:
         raise TypeError("В ответе API получен не словарь")
+    elif "homeworks" not in response:
+        raise KeyError("Отсутсвует ключ homeworks в ответе API")
+    elif type(response["homeworks"]) is not list:
+        raise TypeError("Значение ключа homeworks не список")
+    else:
+        return response["homeworks"]
 
 
 def parse_status(homework):
@@ -105,15 +100,18 @@ def parse_status(homework):
     homework_name = homework.get("homework_name")
     homework_status = homework.get("status")
 
-    if homework_name is not None and homework_status is not None:
-        if homework_status in HOMEWORK_VERDICTS:
-            verdict = HOMEWORK_VERDICTS.get(homework_status)
-            return ('Изменился статус проверки '
-                    + f'работы "{homework_name}". {verdict}')
-        else:
-            raise SystemError("Неизвестный статус домашней работы")
+    keys = ["status", "homework_name"]
+
+    for key in keys:
+        if key not in homework:
+            raise KeyError(f"Значение ключа {key} отсутсвует")
+
+    if homework_status not in HOMEWORK_VERDICTS:
+        raise SystemError("Неизвестный статус домашней работы")
     else:
-        raise KeyError("Значения ключей homework_name и status отсутсвуют")
+        verdict = HOMEWORK_VERDICTS.get(homework_status)
+        return ('Изменился статус проверки '
+                + f'работы "{homework_name}". {verdict}')
 
 
 def main():
@@ -132,7 +130,10 @@ def main():
 
                 homework_verdict = parse_status(
                     response[LAST_HOMEWORK_COUNTER])
-
+            except Exception as error:
+                message = f"Сбой в работе программы: {error}"
+                logger.error(message)
+            else:
                 hw_status = response[LAST_HOMEWORK_COUNTER].get("status")
 
                 if hw_status != hw_status_check:
@@ -143,13 +144,8 @@ def main():
                         "Всё сработало, но "
                         + "статус работы не изменился, "
                         + "сообщение не будет отправлено.")
-            except Exception as error:
-                message = f"Сбой в работе программы: {error}"
-                logger.error(message)
             finally:
                 time.sleep(RETRY_PERIOD)
-        else:
-            break
 
 
 if __name__ == "__main__":
